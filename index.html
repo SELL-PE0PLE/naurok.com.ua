@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Шпаргалка НаУрок (v3.7)</title>
+    <title>Шпаргалка НаУрок (v3.8)</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <style>
         :root {
@@ -170,7 +170,7 @@
 
 <div class="container">
     <h1>Шпаргалка НаУрок</h1>
-    <div class="version">Версія скрипта: 3.7</div>
+    <div class="version">Версія скрипта: 3.8</div>
     
     <div id="error-box"></div>
 
@@ -202,7 +202,7 @@
         err.style.display = 'none';
         
         if (file.size === 0) {
-            showError("Помилка: файл має нульовий розмір (0 байт). Збережіть PDF у пам'ять телефону та виберіть звідти.");
+            showError("Помилка: файл має нульовий розмір (0 байт).");
             return;
         }
 
@@ -261,7 +261,7 @@
         let currentQ = null;
 
         lines.forEach(line => {
-            // Находим строку со статусом и номером и полностью вырезаем её из текста вопроса
+            // Ищем маркер начала вопроса (статус + номер или номер + статус)
             const match = line.match(/^(Правильно|Без відповіді|Неправильно|частково)\s*[:\-]?\s*(\d{1,3})$/i);
             const matchAlt = line.match(/^(\d{1,3})\s*[\:\-]?\s*(Правильно|Без відповіді|Неправильно|частково)$/i);
 
@@ -272,6 +272,10 @@
                 if (currentQ) questions.push(currentQ);
                 currentQ = { status: matchAlt[2], num: matchAlt[1], lines: [] };
             } else if (currentQ) {
+                // Жесткий фильтр: если строка содержит статус следующего вопроса, мы её отбрасываем
+                if (/^(Правильно|Без відповіді|Неправильно|частково)\s+\d{1,3}$/i.test(line)) return;
+                if (/^\d{1,3}\s+(Правильно|Без відповіді|Неправильно|частково)$/i.test(line)) return;
+
                 if (line !== 'учня' && line !== '—' && line !== 'Предмет' && line !== 'Учень') {
                     currentQ.lines.push(line);
                 }
