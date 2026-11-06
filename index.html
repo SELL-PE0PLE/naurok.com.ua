@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Шпаргалка НаУрок (v3.0)</title>
+    <title>Шпаргалка НаУрок (v3.1)</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <style>
         :root {
@@ -169,7 +169,7 @@
 
 <div class="container">
     <h1>Шпаргалка НаУрок</h1>
-    <div class="version">Версія скрипта: 3.0 (Захист від кешу)</div>
+    <div class="version">Версія скрипта: 3.1</div>
     
     <div id="error-box"></div>
 
@@ -250,55 +250,38 @@
     function parseAndRender(text) {
         const resultsContainer = document.getElementById('results');
         
-        // Абсолютно всеядный метод: ищем блоки, которые содержат номера и ответы
-        const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+        const startIndex = text.indexOf('Розбір відповідей');
+        const cleanText = startIndex !== -1 ? text.substring(startIndex) : text;
+
+        const lines = cleanText.split('\n').map(l => l.trim()).filter(Boolean);
         
         let questions = [];
         let currentQ = null;
 
         lines.forEach(line => {
-            // Если строка — это просто число от 1 до 99 (номер вопроса)
-            if (/^\d{1,2}$/.test(line)) {
+            // Ищем строки, где начинается статус и номер (например, "Правильно 1" или "Без відповіді 2")
+            const match = line.match(/^(Правильно|Без відповіді|Неправильно)\s+(\d{1,2})$/i);
+            
+            if (match) {
                 if (currentQ) questions.push(currentQ);
-                currentQ = { num: line, lines: [] };
+                currentQ = { status: match[1], num: match[2], lines: [] };
             } else if (currentQ) {
                 currentQ.lines.push(line);
             }
         });
         if (currentQ) questions.push(currentQ);
 
-        // Если номеров не нашлось вообще, делаем фоллбек: просто выводим весь текст кусками
-        if (questions.length === 0) {
-            resultsContainer.innerHTML = `<div class="question-card"><div class="question-text">Сирий текст з PDF (не вдалося знайти номери):</div><p style="font-size:14px; color:#4b5563; white-space: pre-wrap;">${text.substring(0, 1500)}...</p></div>`;
-            return;
-        }
-
         let count = 0;
-        questions.forEach((q, index) => {
+        questions.forEach(q => {
             if (q.lines.length === 0) return;
 
-            // Ищем статус в первых строках блока
-            let status = "Без відповіді";
-            let bodyStartIndex = 0;
-
-            for (let i = 0; i < Math.min(3, q.lines.length); i++) {
-                if (q.lines[i].includes('Правильно') || q.lines[i].includes('Без відповіді') || q.lines[i].includes('Неправильно')) {
-                    status = q.lines[i];
-                    bodyStartIndex = i + 1;
-                    break;
-                }
-            }
-
-            const bodyLines = q.lines.slice(bodyStartIndex);
-            if (bodyLines.length === 0) return;
-
-            const qText = bodyLines[0];
-            const rawOpts = bodyLines.slice(1);
+            const qText = q.lines[0];
+            const rawOpts = q.lines.slice(1);
 
             const card = document.createElement('div');
             card.className = 'question-card';
 
-            const isCorrectOverall = status.toLowerCase().includes('правильно');
+            const isCorrectOverall = q.status.toLowerCase().includes('правильно');
 
             let optionsHtml = '';
             if (rawOpts.length > 0) {
@@ -317,13 +300,13 @@
             }
 
             if (!optionsHtml) {
-                optionsHtml = `<div class="option is-correct"><span>${bodyLines.join(' ')}</span><span class="option-meta">✓ правильна</span></div>`;
+                optionsHtml = `<div class="option is-correct"><span>${q.lines.join(' ')}</span><span class="option-meta">✓ правильна</span></div>`;
             }
 
             card.innerHTML = `
                 <div class="question-header">
                     <div class="question-number">${q.num}</div>
-                    <div class="status-badge ${isCorrectOverall ? 'correct' : 'none'}">${status}</div>
+                    <div class="status-badge ${isCorrectOverall ? 'correct' : 'none'}">${q.status}</div>
                 </div>
                 <div class="question-text">${qText}</div>
                 <div class="options-list">${optionsHtml}</div>
