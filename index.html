@@ -1,337 +1,1046 @@
+
 <!DOCTYPE html>
-<html lang="uk">
+<html lang="ru">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Шпаргалка НаУрок (v7.1)</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-    <style>
-        :root {
-            --bg-color: #f4f5f7;
-            --card-bg: #ffffff;
-            --text-main: #111827;
-            --success-bg: #e6f4ea;
-            --success-border: #ceead6;
-            --success-text: #137333;
-            --neutral-bg: #f8f9fa;
-            --neutral-border: #e9ecef;
-            --badge-bg: #202124;
-        }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<meta name="theme-color" content="#f5f6fa">
+<title>НаУрок — Ответы</title>
 
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            background-color: var(--bg-color);
-            color: var(--text-main);
-            margin: 0;
-            padding: 16px;
-        }
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 
-        .container {
-            max-width: 600px;
-            margin: 0 auto;
-        }
+<style>
+:root {
+  --bg: #f5f6fa;
+  --card: #ffffff;
+  --text: #171923;
+  --muted: #858b9a;
+  --border: #e9eaf0;
+  --green: #168653;
+  --green-bg: #e8f7ef;
+  --gray-bg: #f0f1f5;
+  --shadow: 0 3px 15px rgba(20,25,45,.045);
+}
 
-        h1 {
-            font-size: 20px;
-            text-align: center;
-            margin-bottom: 5px;
-        }
+* { box-sizing: border-box; }
 
-        .version {
-            font-size: 12px;
-            text-align: center;
-            color: #6b7280;
-            margin-bottom: 20px;
-        }
+body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI",
+    Roboto, Arial, sans-serif;
+}
 
-        .upload-box {
-            background: var(--card-bg);
-            border: 2px dashed #cbd5e1;
-            border-radius: 12px;
-            padding: 24px;
-            text-align: center;
-            margin-bottom: 20px;
-            cursor: pointer;
-        }
+button, input { font: inherit; }
 
-        .upload-box input {
-            display: none;
-        }
+.container {
+  width: 100%;
+  max-width: 760px;
+  margin: auto;
+  padding: 22px 15px 60px;
+}
 
-        .upload-btn {
-            background: #1a73e8;
-            color: white;
-            padding: 10px 20px;
-            border-radius: 8px;
-            display: inline-block;
-            font-weight: 500;
-            margin-top: 10px;
-        }
+.header {
+  margin-bottom: 23px;
+}
 
-        .question-card {
-            background: var(--card-bg);
-            border-radius: 16px;
-            padding: 20px;
-            margin-bottom: 16px;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
-        }
+.header h1 {
+  margin: 0;
+  font-size: 25px;
+  font-weight: 800;
+  letter-spacing: -.8px;
+}
 
-        .question-header {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            margin-bottom: 12px;
-        }
+.header p {
+  margin: 6px 0 0;
+  font-size: 13px;
+  color: var(--muted);
+}
 
-        .question-number {
-            background: var(--badge-bg);
-            color: white;
-            width: 28px;
-            height: 28px;
-            border-radius: 8px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: bold;
-            font-size: 14px;
-        }
+.upload {
+  display: block;
+  background: white;
+  border: 2px dashed #d9dce6;
+  border-radius: 18px;
+  padding: 25px 15px;
+  text-align: center;
+  cursor: pointer;
+  transition: .2s;
+  box-shadow: var(--shadow);
+}
 
-        .status-badge {
-            font-size: 13px;
-            padding: 4px 10px;
-            border-radius: 6px;
-            font-weight: 500;
-        }
+.upload:active { transform: scale(.99); }
 
-        .status-badge.correct {
-            background: #ceead6;
-            color: var(--success-text);
-        }
+.upload-icon {
+  font-size: 32px;
+  margin-bottom: 8px;
+}
 
-        .status-badge.none {
-            background: #e8eaed;
-            color: #5f6368;
-        }
+.upload strong {
+  display: block;
+  font-size: 15px;
+}
 
-        .question-text {
-            font-size: 16px;
-            font-weight: 600;
-            margin-bottom: 16px;
-            line-height: 1.4;
-        }
+.upload small {
+  display: block;
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: 12px;
+}
 
-        .option {
-            background: var(--neutral-bg);
-            border: 1px solid var(--neutral-border);
-            border-radius: 10px;
-            padding: 12px 16px;
-            margin-bottom: 8px;
-            font-size: 15px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            line-height: 1.3;
-        }
+#fileInput { display: none; }
 
-        .option.is-correct {
-            background: var(--success-bg);
-            border-color: var(--success-border);
-            color: var(--success-text);
-        }
+.progress-wrap {
+  display: none;
+  margin-top: 16px;
+}
 
-        .option-meta {
-            font-size: 12px;
-            font-weight: 500;
-            white-space: nowrap;
-            margin-left: 10px;
-        }
+.progress-info {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: var(--muted);
+  margin-bottom: 7px;
+}
 
-        #loading {
-            text-align: center;
-            display: none;
-            margin: 20px 0;
-            font-weight: 500;
-            color: #5f6368;
-        }
+.progress {
+  height: 6px;
+  background: #e4e6ed;
+  border-radius: 10px;
+  overflow: hidden;
+}
 
-        #error-box {
-            color: #d93025;
-            background: #fce8e6;
-            padding: 12px;
-            border-radius: 8px;
-            margin-bottom: 15px;
-            display: none;
-            font-size: 14px;
-            word-break: break-all;
-        }
-    </style>
+.progress-bar {
+  height: 100%;
+  width: 0;
+  background: #272b38;
+  transition: width .2s;
+}
+
+.error {
+  display: none;
+  margin-top: 15px;
+  padding: 13px;
+  border-radius: 12px;
+  background: #fff0f0;
+  color: #c43b3b;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.stats {
+  display: none;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 9px;
+  margin: 20px 0;
+}
+
+.stat {
+  background: white;
+  border-radius: 13px;
+  padding: 13px 8px;
+  text-align: center;
+  box-shadow: var(--shadow);
+}
+
+.stat b {
+  display: block;
+  font-size: 21px;
+}
+
+.stat span {
+  display: block;
+  color: var(--muted);
+  font-size: 11px;
+  margin-top: 3px;
+}
+
+.toolbar {
+  display: none;
+  gap: 9px;
+  margin: 20px 0;
+}
+
+.search {
+  flex: 1;
+  min-width: 0;
+  background: white;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px 14px;
+  outline: none;
+  font-size: 14px;
+}
+
+.search:focus {
+  border-color: #999eae;
+}
+
+.filter {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 0 11px;
+  background: white;
+  color: #343846;
+  font-size: 12px;
+}
+
+.cards {
+  display: flex;
+  flex-direction: column;
+  gap: 13px;
+}
+
+.card {
+  background: var(--card);
+  border-radius: 16px;
+  padding: 16px;
+  box-shadow: var(--shadow);
+  border: 1px solid rgba(0,0,0,.025);
+  overflow-wrap: anywhere;
+}
+
+.card-header {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin-bottom: 15px;
+}
+
+.number {
+  width: 34px;
+  height: 34px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #171923;
+  color: white;
+  border-radius: 8px;
+  font-weight: 750;
+  font-size: 14px;
+}
+
+.status {
+  padding: 7px 10px;
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 650;
+  background: var(--gray-bg);
+  color: #626878;
+}
+
+.status.correct {
+  background: var(--green-bg);
+  color: var(--green);
+}
+
+.question {
+  font-size: 15px;
+  font-weight: 650;
+  line-height: 1.55;
+  margin-bottom: 13px;
+  white-space: pre-wrap;
+}
+
+.answers {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.answer {
+  padding: 11px 12px;
+  border-radius: 10px;
+  background: #f7f7fa;
+  color: #444958;
+  font-size: 13px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
+.answer.correct {
+  background: var(--green-bg);
+  color: #147348;
+  border: 1px solid #ccebd9;
+}
+
+.answer-mark {
+  display: block;
+  margin-top: 5px;
+  font-weight: 750;
+  font-size: 11px;
+  color: var(--green);
+}
+
+.empty {
+  display: none;
+  text-align: center;
+  color: var(--muted);
+  padding: 40px 10px;
+  font-size: 14px;
+}
+
+.log {
+  display: none;
+  margin-top: 25px;
+  background: #20232d;
+  color: #b9c3d5;
+  border-radius: 12px;
+  padding: 13px;
+  font-family: monospace;
+  font-size: 11px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.footer {
+  text-align: center;
+  color: #a1a5b1;
+  font-size: 11px;
+  margin-top: 30px;
+}
+
+@media (min-width: 600px) {
+  .container { padding-top: 35px; }
+  .card { padding: 20px; }
+  .question { font-size: 16px; }
+}
+</style>
 </head>
+
 <body>
-
 <div class="container">
-    <h1>Шпаргалка НаУрок</h1>
-    <div class="version">Версія скрипта: 7.1</div>
-    
-    <div id="error-box"></div>
 
-    <div class="upload-box" onclick="document.getElementById('pdfFile').click()">
-        <p>Натисніть сюди, щоб вибрати PDF файл з тесту</p>
-        <div class="upload-btn">Обрати PDF</div>
-        <input type="file" id="pdfFile" accept="application/pdf,.pdf" onchange="handleFileV71(event)">
+  <header class="header">
+    <h1>НаУрок <span style="color:#9297a5">/</span> Answers</h1>
+    <p>PDF-парсер · Удобная лента вопросов и ответов</p>
+  </header>
+
+  <label class="upload" for="fileInput">
+    <div class="upload-icon">📄</div>
+    <strong>Загрузить PDF-файл</strong>
+    <small>Нажмите, чтобы выбрать файл с результатами теста</small>
+  </label>
+
+  <input type="file" id="fileInput" accept=".pdf,application/pdf">
+
+  <div class="progress-wrap" id="progressWrap">
+    <div class="progress-info">
+      <span id="progressText">Обработка PDF...</span>
+      <span id="progressPercent">0%</span>
     </div>
+    <div class="progress">
+      <div class="progress-bar" id="progressBar"></div>
+    </div>
+  </div>
 
-    <div id="loading">Читаємо PDF...</div>
-    <div id="results"></div>
+  <div class="error" id="error"></div>
+
+  <section class="stats" id="stats">
+    <div class="stat">
+      <b id="totalCount">0</b>
+      <span>Вопросов</span>
+    </div>
+    <div class="stat">
+      <b id="correctCount">0</b>
+      <span>Правильно</span>
+    </div>
+    <div class="stat">
+      <b id="otherCount">0</b>
+      <span>Другие статусы</span>
+    </div>
+  </section>
+
+  <section class="toolbar" id="toolbar">
+    <input
+      class="search"
+      id="search"
+      type="search"
+      placeholder="Поиск по вопросам и ответам..."
+    >
+    <select class="filter" id="filter">
+      <option value="all">Все</option>
+      <option value="correct">Правильно</option>
+      <option value="other">Остальные</option>
+    </select>
+  </section>
+
+  <main class="cards" id="cards"></main>
+
+  <div class="empty" id="empty">
+    Ничего не найдено.
+  </div>
+
+  <pre class="log" id="log"></pre>
+
+  <div class="footer">
+    PDF обрабатывается локально в браузере
+  </div>
+
 </div>
 
 <script>
-    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+"use strict";
 
-    function showError(msg) {
-        const err = document.getElementById('error-box');
-        err.style.display = 'block';
-        err.innerText = msg;
-        document.getElementById('loading').style.display = 'none';
+/* =========================================
+   НАСТРОЙКА PDF.JS
+========================================= */
+
+pdfjsLib.GlobalWorkerOptions.workerSrc =
+  "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+
+
+/* =========================================
+   DOM
+========================================= */
+
+const fileInput = document.getElementById("fileInput");
+const cardsElement = document.getElementById("cards");
+const errorElement = document.getElementById("error");
+const progressWrap = document.getElementById("progressWrap");
+const progressBar = document.getElementById("progressBar");
+const progressText = document.getElementById("progressText");
+const progressPercent = document.getElementById("progressPercent");
+const statsElement = document.getElementById("stats");
+const toolbar = document.getElementById("toolbar");
+const searchInput = document.getElementById("search");
+const filterSelect = document.getElementById("filter");
+const emptyElement = document.getElementById("empty");
+const logElement = document.getElementById("log");
+
+let allCards = [];
+
+
+/* =========================================
+   ЛОГИРОВАНИЕ
+========================================= */
+
+function log(message, type = "INFO") {
+  const time = new Date().toLocaleTimeString();
+
+  console.log(`[${time}] [${type}] ${message}`);
+
+  logElement.style.display = "block";
+  logElement.textContent +=
+    `[${time}] [${type}] ${message}\n`;
+
+  logElement.scrollTop = logElement.scrollHeight;
+}
+
+function showError(message) {
+  errorElement.style.display = "block";
+  errorElement.textContent = message;
+  log(message, "ERROR");
+}
+
+function setProgress(percent, message) {
+  const value = Math.max(0, Math.min(100, percent));
+
+  progressBar.style.width = value + "%";
+  progressPercent.textContent = value + "%";
+  progressText.textContent = message;
+}
+</script>
+</body>
+</html>
+
+<script>
+/* =========================================
+   НОРМАЛИЗАЦИЯ ТЕКСТА
+========================================= */
+
+function normalizeText(text) {
+  return String(text || "")
+    .replace(/\u00a0/g, " ")
+    .replace(/[\u200b-\u200f\uFEFF]/g, "")
+    .replace(/[ \t]+/g, " ")
+    .replace(/\s+([,.;:!?])/g, "$1")
+    .trim();
+}
+
+function cleanLine(line) {
+  return normalizeText(line)
+    .replace(/^[\s•●▪■☐☑]+/, "")
+    .trim();
+}
+
+
+/* =========================================
+   ИЗВЛЕЧЕНИЕ СТРОК ИЗ PDF
+========================================= */
+
+function buildPageLines(textContent) {
+  const groups = new Map();
+  let sequence = 0;
+
+  for (const item of textContent.items) {
+    if (!item.str) continue;
+
+    const value = item.str;
+
+    if (!value.trim()) continue;
+
+    const y = item.transform
+      ? item.transform[5]
+      : 0;
+
+    const key = Math.round(y * 2) / 2;
+
+    if (!groups.has(key)) {
+      groups.set(key, {
+        y,
+        sequence: sequence++,
+        parts: []
+      });
     }
 
-    async function handleFileV71(event) {
-        const file = event.target.files[0];
-        if (!file) return;
+    groups.get(key).parts.push(value);
+  }
 
-        const err = document.getElementById('error-box');
-        err.style.display = 'none';
-        
-        if (file.size === 0) {
-            showError("Помилка: файл має нульовий розмір.");
-            return;
-        }
+  const lines = Array.from(groups.values())
+    .sort((a, b) => {
+      return b.y - a.y || a.sequence - b.sequence;
+    })
+    .map(group => normalizeText(group.parts.join(" ")))
+    .filter(Boolean);
 
-        document.getElementById('loading').style.display = 'block';
-        document.getElementById('results').innerHTML = '';
+  return lines;
+}
 
-        try {
-            const arrayBuffer = await file.arrayBuffer();
-            const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-            
-            let fullText = '';
-            for (let i = 1; i <= pdf.numPages; i++) {
-                const page = await pdf.getPage(i);
-                const textContent = await page.getTextContent();
-                const pageText = textContent.items.map(item => item.str).join('\n');
-                fullText += pageText + '\n';
-            }
 
-            document.getElementById('loading').style.display = 'none';
-            parseUniversal(fullText);
+/* =========================================
+   РАСПОЗНАВАНИЕ СТАТУСОВ
+========================================= */
 
-        } catch (error) {
-            console.error(error);
-            showError("Помилка читання PDF: " + (error.message || error));
-        }
+const STATUS_PATTERN =
+  /(?:\b(Правильно|Неправильно|Без\s+відповіді)\s*[:#№-]?\s*(\d+)\b)|(?:\b(\d+)\s*[:#№-]?\s*(Правильно|Неправильно|Без\s+відповіді)\b)/giu;
+
+function normalizeStatus(value) {
+  const status = normalizeText(value).toLowerCase();
+
+  if (status.includes("без")) {
+    return "Без відповіді";
+  }
+
+  if (status.includes("неправильно")) {
+    return "Неправильно";
+  }
+
+  return "Правильно";
+}
+
+function findStatusMarkers(text) {
+  const matches = [];
+
+  STATUS_PATTERN.lastIndex = 0;
+
+  let match;
+
+  while ((match = STATUS_PATTERN.exec(text)) !== null) {
+    const statusText = match[1] || match[4];
+    const number = match[2] || match[3];
+
+    matches.push({
+      index: match.index,
+      end: match.index + match[0].length,
+      number: Number(number),
+      status: normalizeStatus(statusText)
+    });
+
+    if (match[0].length === 0) {
+      STATUS_PATTERN.lastIndex++;
+    }
+  }
+
+  return matches;
+}
+
+
+/* =========================================
+   РАЗДЕЛЕНИЕ НА ВОПРОСЫ
+========================================= */
+
+function splitIntoQuestionBlocks(lines) {
+  const text = lines.join("\n");
+  const markers = findStatusMarkers(text);
+
+  const result = [];
+  let current = null;
+  let cursor = 0;
+
+  for (const marker of markers) {
+    const before = text.slice(cursor, marker.index);
+
+    if (current && before.trim()) {
+      current.content += "\n" + before;
     }
 
-    function parseUniversal(text) {
-        const resultsContainer = document.getElementById('results');
-        
-        const lines = text.split('\n')
-            .map(l => l.trim())
-            .filter(l => l && !['учня', '—', 'Предмет', 'Учень', 'Учитель', 'Результат', 'Тест', 'Презентація'].includes(l));
-        
-        let questions = [];
-        let currentQ = null;
-
-        lines.forEach(line => {
-            // Универсальный поиск: ищем наличие цифры и слов состояния в строке
-            const hasNum = /\b\d{1,3}\b/.test(line);
-            const hasStatusWord = /правильно|неправильно|відповіді|частково/i.test(line);
-
-            if (hasNum && hasStatusWord && line.length < 30) {
-                if (currentQ) questions.push(currentQ);
-                
-                const numMatch = line.match(/\d+/);
-                const num = numMatch ? numMatch[0] : (questions.length + 1);
-                
-                let status = "Без відповіді";
-                if (/правильно/i.test(line)) status = "Правильно";
-                else if (/неправильно/i.test(line)) status = "Неправильно";
-                else if (/частково/i.test(line)) status = "Частково";
-
-                currentQ = {
-                    status: status,
-                    num: num,
-                    lines: []
-                };
-            } else if (currentQ) {
-                currentQ.lines.push(line);
-            }
-        });
-        if (currentQ) questions.push(currentQ);
-
-        let count = 0;
-        questions.forEach(q => {
-            if (q.lines.length === 0) return;
-
-            const qText = q.lines[0];
-            const rawOpts = q.lines.slice(1);
-
-            const card = document.createElement('div');
-            card.className = 'question-card';
-
-            const isCorrectOverall = q.status.toLowerCase().includes('правильно');
-
-            let options = [];
-            let currentOptText = "";
-
-            rawOpts.forEach(line => {
-                if (line.includes('правильна') || line.includes('правильно')) {
-                    currentOptText += " " + line.replace(/правильна|правильно/gi, '').trim();
-                    options.push({ text: currentOptText.trim(), correct: true });
-                    currentOptText = "";
-                } else {
-                    if (currentOptText) {
-                        options.push({ text: currentOptText.trim(), correct: false });
-                    }
-                    currentOptText = line;
-                }
-            });
-            if (currentOptText) {
-                options.push({ text: currentOptText.trim(), correct: false });
-            }
-
-            let optionsHtml = '';
-            options.forEach(opt => {
-                if (opt.text.length > 1) {
-                    optionsHtml += `
-                        <div class="option ${opt.correct ? 'is-correct' : ''}">
-                            <span>${opt.text}</span>
-                            ${opt.correct ? '<span class="option-meta">✓ правильна</span>' : ''}
-                        </div>
-                    `;
-                }
-            });
-
-            if (!optionsHtml) {
-                optionsHtml = `<div class="option is-correct"><span>${rawOpts.join(' ')}</span><span class="option-meta">✓ правильна</span></div>`;
-            }
-
-            card.innerHTML = `
-                <div class="question-header">
-                    <div class="question-number">${q.num}</div>
-                    <div class="status-badge ${isCorrectOverall ? 'correct' : 'none'}">${q.status}</div>
-                </div>
-                <div class="question-text">${qText}</div>
-                <div class="options-list">${optionsHtml}</div>
-            `;
-            
-            resultsContainer.appendChild(card);
-            count++;
-        });
-
-        if (count === 0) {
-            resultsContainer.innerHTML = '<p style="text-align:center; color: #d93025;">Не вдалося розібрати питання. Перевірте файл.</p>';
-        }
+    if (current) {
+      result.push(current);
     }
+
+    current = {
+      number: marker.number,
+      status: marker.status,
+      content: ""
+    };
+
+    cursor = marker.end;
+  }
+
+  if (current) {
+    const remaining = text.slice(cursor);
+
+    if (remaining.trim()) {
+      current.content += "\n" + remaining;
+    }
+
+    result.push(current);
+  }
+
+  log(`Найдено маркеров статуса: ${markers.length}`);
+  log(`Создано блоков вопросов: ${result.length}`);
+
+  return result;
+}
+
+
+/* =========================================
+   УДАЛЕНИЕ МУСОРА
+========================================= */
+
+function removeStatusArtifacts(text) {
+  let result = String(text || "");
+
+  result = result.replace(STATUS_PATTERN, " ");
+
+  result = result
+    .split("\n")
+    .map(cleanLine)
+    .filter(Boolean)
+    .join("\n");
+
+  return result.trim();
+}
+
+
+/* =========================================
+   ОПРЕДЕЛЕНИЕ ПРАВИЛЬНЫХ ОТВЕТОВ
+========================================= */
+
+function extractAnswerInfo(line) {
+  const marker =
+    /\b(правильна|правильно)\b/iu;
+
+  const match = line.match(marker);
+
+  if (!match) {
+    return {
+      text: cleanLine(line),
+      correct: false
+    };
+  }
+
+  const cleaned = line
+    .replace(marker, "")
+    .replace(/[✓✔☑]/g, "")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+
+  return {
+    text: cleaned,
+    correct: true
+  };
+}
+
+
+/* =========================================
+   РАЗБОР ВОПРОСА И ВАРИАНТОВ
+========================================= */
+
+const OPTION_PATTERN =
+  /^(?:(?:[А-ЯA-ZІЇЄҐа-яієїґ]|\d{1,2})[\).:]|[•●○▪■☐☑✓✔]|Варіант\s+\d+|Вариант\s+\d+)\s*/iu;
+
+function parseQuestionBlock(block) {
+  const raw = removeStatusArtifacts(block.content);
+
+  if (!raw) {
+    return null;
+  }
+
+  let lines = raw
+    .split("\n")
+    .map(cleanLine)
+    .filter(Boolean);
+
+  if (!lines.length) return null;
+
+  let firstAnswerIndex = lines.findIndex(line => {
+    return OPTION_PATTERN.test(line) ||
+      /\b(?:правильна|правильно)\b/iu.test(line);
+  });
+
+  if (firstAnswerIndex === -1) {
+    const paragraphs = raw
+      .split(/\n{2,}/)
+      .map(cleanLine)
+      .filter(Boolean);
+
+    if (paragraphs.length > 1) {
+      lines = paragraphs;
+      firstAnswerIndex = 1;
+    }
+  }
+
+  let questionLines;
+  let answerLines;
+
+  if (firstAnswerIndex > 0) {
+    questionLines = lines.slice(0, firstAnswerIndex);
+    answerLines = lines.slice(firstAnswerIndex);
+  } else if (firstAnswerIndex === 0) {
+    questionLines = [];
+    answerLines = lines;
+  } else {
+    questionLines = lines;
+    answerLines = [];
+  }
+
+  const answers = [];
+
+  for (let line of answerLines) {
+    const hasOptionPrefix = OPTION_PATTERN.test(line);
+
+    if (hasOptionPrefix) {
+      line = line.replace(OPTION_PATTERN, "").trim();
+    }
+
+    const info = extractAnswerInfo(line);
+
+    if (!info.text && !info.correct) continue;
+
+    if (!hasOptionPrefix && answers.length > 0 &&
+        !info.correct) {
+      answers[answers.length - 1].text +=
+        " " + info.text;
+      continue;
+    }
+
+    answers.push({
+      text: info.text,
+      correct: info.correct
+    });
+  }
+
+  const question = removeStatusArtifacts(
+    questionLines.join("\n")
+  );
+
+  const filteredAnswers = answers.filter(answer => {
+    return answer.text.trim() || answer.correct;
+  });
+
+  if (!question && !filteredAnswers.length) {
+    return null;
+  }
+
+  return {
+    number: block.number,
+    status: block.status,
+    question,
+    answers: filteredAnswers
+  };
+}
 </script>
 
+<script>
+/* =========================================
+   ОБРАБОТКА ВСЕГО PDF
+========================================= */
+
+async function parsePDF(file) {
+  log("Начало обработки: " + file.name);
+
+  if (!file || file.type !== "application/pdf") {
+    throw new Error("Выберите корректный PDF-файл.");
+  }
+
+  const buffer = await file.arrayBuffer();
+
+  const pdf = await pdfjsLib.getDocument({
+    data: new Uint8Array(buffer)
+  }).promise;
+
+  log(`PDF загружен. Страниц: ${pdf.numPages}`);
+
+  let allLines = [];
+
+  for (let pageNumber = 1;
+       pageNumber <= pdf.numPages;
+       pageNumber++) {
+
+    const page = await pdf.getPage(pageNumber);
+
+    const textContent = await page.getTextContent({
+      normalizeWhitespace: true,
+      disableCombineTextItems: false
+    });
+
+    const lines = buildPageLines(textContent);
+
+    allLines.push(...lines);
+
+    const progress = Math.round(
+      pageNumber / pdf.numPages * 85
+    );
+
+    setProgress(
+      progress,
+      `Обработка страницы ${pageNumber} из ${pdf.numPages}`
+    );
+
+    log(
+      `Страница ${pageNumber}: извлечено строк ${lines.length}`
+    );
+  }
+
+  log(`Всего строк: ${allLines.length}`);
+
+  setProgress(90, "Поиск вопросов...");
+
+  const blocks = splitIntoQuestionBlocks(allLines);
+
+  const parsed = blocks
+    .map(parseQuestionBlock)
+    .filter(Boolean);
+
+  const unique = [];
+  const seen = new Set();
+
+  for (const card of parsed) {
+    const key = [
+      card.number,
+      card.question,
+      card.status
+    ].join("|");
+
+    if (seen.has(key)) continue;
+
+    seen.add(key);
+    unique.push(card);
+  }
+
+  setProgress(100, "Готово");
+
+  log(`Итоговых карточек: ${unique.length}`);
+
+  if (!unique.length) {
+    throw new Error(
+      "Вопросы не найдены. Возможно, формат PDF отличается " +
+      "от ожидаемого или файл содержит только изображения."
+    );
+  }
+
+  return unique;
+}
+
+
+/* =========================================
+   СОЗДАНИЕ КАРТОЧЕК
+========================================= */
+
+function createCard(card) {
+  const article = document.createElement("article");
+  article.className = "card";
+
+  const header = document.createElement("div");
+  header.className = "card-header";
+
+  const number = document.createElement("div");
+  number.className = "number";
+  number.textContent = card.number;
+
+  const status = document.createElement("div");
+  status.className = "status";
+
+  if (card.status === "Правильно") {
+    status.classList.add("correct");
+  }
+
+  status.textContent = card.status;
+
+  header.append(number, status);
+  article.appendChild(header);
+
+  if (card.question) {
+    const question = document.createElement("div");
+    question.className = "question";
+    question.textContent = card.question;
+    article.appendChild(question);
+  }
+
+  if (card.answers.length) {
+    const answers = document.createElement("div");
+    answers.className = "answers";
+
+    for (const answer of card.answers) {
+      const element = document.createElement("div");
+
+      element.className = "answer";
+
+      if (answer.correct) {
+        element.classList.add("correct");
+      }
+
+      element.appendChild(
+        document.createTextNode(answer.text)
+      );
+
+      if (answer.correct) {
+        const mark = document.createElement("span");
+        mark.className = "answer-mark";
+        mark.textContent = "✓ правильна";
+
+        element.appendChild(mark);
+      }
+
+      answers.appendChild(element);
+    }
+
+    article.appendChild(answers);
+  }
+
+  return article;
+}
+
+
+/* =========================================
+   ОТОБРАЖЕНИЕ
+========================================= */
+
+function renderCards(cards) {
+  cardsElement.replaceChildren();
+
+  const fragment = document.createDocumentFragment();
+
+  for (const card of cards) {
+    fragment.appendChild(createCard(card));
+  }
+
+  cardsElement.appendChild(fragment);
+
+  emptyElement.style.display =
+    cards.length ? "none" : "block";
+}
+
+function updateStats(cards) {
+  const correct = cards.filter(
+    card => card.status === "Правильно"
+  ).length;
+
+  document.getElementById("totalCount").textContent =
+    cards.length;
+
+  document.getElementById("correctCount").textContent =
+    correct;
+
+  document.getElementById("otherCount").textContent =
+    cards.length - correct;
+}
+
+
+/* =========================================
+   ПОИСК И ФИЛЬТРАЦИЯ
+========================================= */
+
+function applyFilters() {
+  const query = searchInput.value
+    .trim()
+    .toLowerCase();
+
+  const filter = filterSelect.value;
+
+  const filtered = allCards.filter(card => {
+    const searchable = [
+      card.question,
+      ...card.answers.map(a => a.text)
+    ].join(" ").toLowerCase();
+
+    const matchesSearch =
+      !query || searchable.includes(query);
+
+    const matchesFilter =
+      filter === "all" ||
+      (filter === "correct" &&
+        card.status === "Правильно") ||
+      (filter === "other" &&
+        card.status !== "Правильно");
+
+    return matchesSearch && matchesFilter;
+  });
+
+  renderCards(filtered);
+}
+
+searchInput.addEventListener("input", applyFilters);
+filterSelect.addEventListener("change", applyFilters);
+
+
+/* =========================================
+   ЗАГРУЗКА ФАЙЛА
+========================================= */
+
+fileInput.addEventListener("change", async event => {
+  const file = event.target.files[0];
+
+  if (!file) return;
+
+  errorElement.style.display = "none";
+  statsElement.style.display = "none";
+  toolbar.style.display = "none";
+  cardsElement.replaceChildren();
+  logElement.textContent = "";
+  logElement.style.display = "none";
+
+  progressWrap.style.display = "block";
+
+  setProgress(0, "Подготовка файла...");
+
+  try {
+    allCards = await parsePDF(file);
+
+    renderCards(allCards);
+    updateStats(allCards);
+
+    statsElement.style.display = "grid";
+    toolbar.style.display = "flex";
+
+    searchInput.value = "";
+    filterSelect.value = "all";
+
+    log("Обработка завершена успешно.");
+
+  } catch (error) {
+    console.error(error);
+
+    showError(
+      error.message ||
+      "Не удалось обработать PDF-файл."
+    );
+
+  } finally {
+    setTimeout(() => {
+      progressWrap.style.display = "none";
+    }, 800);
+
+    fileInput.value = "";
+  }
+});
+</script>
 </body>
 </html>
