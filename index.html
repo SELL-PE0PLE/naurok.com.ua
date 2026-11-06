@@ -3,8 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Форматування відповідей НаУрок</title>
-    <!-- Подключаем PDF.js -->
+    <title>Шпаргалка НаУрок</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <style>
         :root {
@@ -132,106 +131,4 @@
             border-color: var(--success-border);
             color: var(--success-text);
         }
-
-        .option-meta {
-            font-size: 12px;
-            font-weight: 500;
-            white-space: nowrap;
-            margin-left: 10px;
-        }
-
-        #loading {
-            text-align: center;
-            display: none;
-            margin: 20px 0;
-            font-weight: 500;
-            color: #5f6368;
-        }
-
-        #error-box {
-            color: #d93025;
-            background: #fce8e6;
-            padding: 12px;
-            border-radius: 8px;
-            margin-bottom: 15px;
-            display: none;
-            font-size: 14px;
-        }
-    </style>
-</head>
-<body>
-
-<div class="container">
-    <h1>Шпаргалка НаУрок</h1>
-    
-    <div id="error-box"></div>
-
-    <div class="upload-box" onclick="document.getElementById('pdfFile').click()">
-        <p>Натисніть сюди, щоб вибрати PDF файл з тесту</p>
-        <div class="upload-btn">Обрати PDF</div>
-        <input type="file" id="pdfFile" accept="application/pdf,.pdf" onchange="handleFile(event)">
-    </div>
-
-    <div id="loading">Читаємо PDF файл...</div>
-    <div id="results"></div>
-</div>
-
-<script>
-    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-
-    function showError(msg) {
-        const err = document.getElementById('error-box');
-        err.style.display = 'block';
-        err.innerText = msg;
-        document.getElementById('loading').style.display = 'none';
-    }
-
-    async function handleFile(event) {
-        const file = event.target.files[0];
-        if (!file) return;
-
-        const err = document.getElementById('error-box');
-        err.style.display = 'none';
         
-        if (file.size === 0) {
-            showError("Помилка: файл має нульовий розмір (0 Байт). Спробуйте зберегти PDF у пам'ять телефону і вибрати його знову.");
-            return;
-        }
-
-        document.getElementById('loading').style.display = 'block';
-        document.getElementById('results').innerHTML = '';
-
-        try {
-            const arrayBuffer = await file.arrayBuffer();
-            const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
-            const pdf = await loadingTask.promise;
-            
-            let fullText = '';
-            for (let i = 1; i <= pdf.numPages; i++) {
-                const page = await pdf.getPage(i);
-                const textContent = await page.getContent ? await page.getContent() : await page.getTextContent();
-                
-                let lineText = '';
-                for (let item of textContent.items) {
-                    lineText += item.str + ' ';
-                }
-                fullText += lineText + '\n';
-            }
-
-            document.getElementById('loading').style.display = 'none';
-            parseAndRender(fullText);
-
-        } catch (error) {
-            console.error(error);
-            showError("Не вдалося прочитати PDF. Переконайтеся, що це валідний файл `.pdf` з сайту НаУрок.");
-        }
-    }
-
-    function parseAndRender(text) {
-        const resultsContainer = document.getElementById('results');
-        resultsContainer.innerHTML = '<p style="text-align:center; color: #5f6368;">Файл успішно прочитано! (Розмір тексту: ' + text.length + ' символів)</p>';
-    }
-</script>
-
-</body>
-</html>
