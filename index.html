@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Форматування відповідей НаУрок</title>
-    <!-- Подключаем PDF.js для чтения PDF прямо в браузере -->
+    <!-- Подключаем PDF.js -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <style>
         :root {
@@ -62,7 +62,6 @@
             margin-top: 10px;
         }
 
-        /* Карточка вопроса */
         .question-card {
             background: var(--card-bg);
             border-radius: 16px;
@@ -115,7 +114,6 @@
             line-height: 1.4;
         }
 
-        /* Варианты ответов */
         .option {
             background: var(--neutral-bg);
             border: 1px solid var(--neutral-border);
@@ -149,6 +147,16 @@
             font-weight: 500;
             color: #5f6368;
         }
+
+        #error-box {
+            color: #d93025;
+            background: #fce8e6;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            display: none;
+            font-size: 14px;
+        }
     </style>
 </head>
 <body>
@@ -156,95 +164,72 @@
 <div class="container">
     <h1>Шпаргалка НаУрок</h1>
     
+    <div id="error-box"></div>
+
     <div class="upload-box" onclick="document.getElementById('pdfFile').click()">
-        <p>Натисніть сюди, щоб вибрати PDF файл з тестом</p>
+        <p>Натисніть сюди, щоб вибрати PDF файл з тесту</p>
         <div class="upload-btn">Обрати PDF</div>
-        <input type="file" id="pdfFile" accept=".pdf" onchange="handleFile(event)">
+        <input type="file" id="pdfFile" accept="application/pdf,.pdf" onchange="handleFile(event)">
     </div>
 
-    <div id="loading">Обробка файлу...</div>
+    <div id="loading">Читаємо PDF файл...</div>
     <div id="results"></div>
 </div>
 
 <script>
-    // Настройка воркера PDF.js
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+    function showError(msg) {
+        const err = document.getElementById('error-box');
+        err.style.display = 'block';
+        err.innerText = msg;
+        document.getElementById('loading').style.display = 'none';
+    }
 
     async function handleFile(event) {
         const file = event.target.files[0];
         if (!file) return;
 
+        const err = document.getElementById('error-box');
+        err.style.display = 'none';
+        
+        if (file.size === 0) {
+            showError("Помилка: файл має нульовий розмір (0 Байт). Спробуйте зберегти PDF у пам'ять телефону і вибрати його знову.");
+            return;
+        }
+
         document.getElementById('loading').style.display = 'block';
         document.getElementById('results').innerHTML = '';
 
-        const reader = new FileReader();
-        reader.onload = async function() {
-            const typedarray = new Uint8Array(this.result);
-            const pdf = await pdfjsLib.getDocument(typedarray).promise;
+        try {
+            const arrayBuffer = await file.arrayBuffer();
+            const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
+            const pdf = await loadingTask.promise;
             
             let fullText = '';
             for (let i = 1; i <= pdf.numPages; i++) {
                 const page = await pdf.getPage(i);
-                const textContent = await page.getTextContent();
-                // Собираем текст построчно
-                let lastY = null;
+                const textContent = await page.getContent ? await page.getContent() : await page.getTextContent();
+                
                 let lineText = '';
                 for (let item of textContent.items) {
-                    if (lastY !== null && Math.abs(item.transform[5] - lastY) > 5) {
-                        fullText += lineText + '\n';
-                        lineText = '';
-                    }
                     lineText += item.str + ' ';
-                    lastY = item.transform[5];
                 }
                 fullText += lineText + '\n';
             }
 
             document.getElementById('loading').style.display = 'none';
             parseAndRender(fullText);
-        };
-        reader.readAsArrayBuffer(file);
+
+        } catch (error) {
+            console.error(error);
+            showError("Не вдалося прочитати PDF. Переконайтеся, що це валідний файл `.pdf` з сайту НаУрок.");
+        }
     }
 
     function parseAndRender(text) {
         const resultsContainer = document.getElementById('results');
-        
-        // Простейший разбор текста по номерам вопросов (число в начале строки перед текстом вопроса или словом "Правильно")
-        // Так как структура НаУрок специфичная, здесь делим по паттерну номера вопроса (например, "1 \n Правильно" или "1 \n Без відповіді")
-        const rawQuestions = text.split(/(?=\n\d+\s+(?:Правильно|Без відповіді|Неправильно|частково))/g);
-
-        rawQuestions.forEach((chunk, index) => {
-            if (!chunk.trim()) return;
-
-            // Извлекаем номер и статус
-            const lines = chunk.trim().split('\n').map(l => l.trim()).filter(Boolean);
-            let qNum = lines[0] || index;
-            let status = lines[1] || 'Без відповіді';
-
-            // Создаем карточку
-            const card = document.createElement('div');
-            card.className = 'question-card';
-
-            const isCorrectOverall = status.toLowerCase().includes('правильно');
-
-            card.innerHTML = `
-                <div class="question-header">
-                    <div class="question-number">${qNum}</div>
-                    <div class="status-badge ${isCorrectOverall ? 'correct' : 'none'}">${status}</div>
-                </div>
-                <div class="question-text">Текст питання #${qNum} (тут буде витягнуте питання з PDF)</div>
-                <div class="options-list">
-                    <div class="option is-correct">
-                        <span>Приклад правильної відповіді (авто-підсвічування)</span>
-                        <span class="option-meta">✓ правильна</span>
-                    </div>
-                    <div class="option">
-                        <span>Інший варіант відповіді</span>
-                    </div>
-                </div>
-            `;
-            resultsContainer.appendChild(card);
-        });
+        resultsContainer.innerHTML = '<p style="text-align:center; color: #5f6368;">Файл успішно прочитано! (Розмір тексту: ' + text.length + ' символів)</p>';
     }
 </script>
 
