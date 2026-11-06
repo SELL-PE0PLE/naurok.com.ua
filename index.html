@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Шпаргалка НаУрок (v3.2)</title>
+    <title>Шпаргалка НаУрок (v3.3)</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <style>
         :root {
@@ -169,7 +169,7 @@
 
 <div class="container">
     <h1>Шпаргалка НаУрок</h1>
-    <div class="version">Версія скрипта: 3.2</div>
+    <div class="version">Версія скрипта: 3.3</div>
     
     <div id="error-box"></div>
 
@@ -259,20 +259,22 @@
         let currentQ = null;
 
         lines.forEach(line => {
-            // Ищем строку, где четко написано состояние и номер (например, "Правильно 1" или "Без відповіді 2")
-            const match = line.match(/^(Правильно|Без відповіді|Неправильно)\s+(\d{1,2})$/i);
+            // Строгий триггер: ищем строки вида "Правильно 1", "Без відповіді 2", "Неправильно 3" и т.д.
+            const match = line.match(/^(Правильно|Без відповіді|Неправильно|частково)\s+(\d{1,2})$/i);
+            const matchAlt = line.match(/^(\d{1,2})\s+(Правильно|Без відповіді|Неправильно|частково)$/i);
             
             if (match) {
                 if (currentQ) questions.push(currentQ);
                 currentQ = { status: match[1], num: match[2], lines: [] };
+            } else if (matchAlt) {
+                if (currentQ) questions.push(currentQ);
+                currentQ = { status: matchAlt[2], num: matchAlt[1], lines: [] };
             } else {
-                // Также проверяем обратный порядок, если номер идет перед статусом
-                const matchAlt = line.match(/^(\d{1,2})\s+(Правильно|Без відповіді|Неправильно)$/i);
-                if (matchAlt) {
-                    if (currentQ) questions.push(currentQ);
-                    currentQ = { status: matchAlt[2], num: matchAlt[1], lines: [] };
-                } else if (currentQ) {
-                    currentQ.lines.push(line);
+                if (currentQ) {
+                    // Исключаем попадание служебных строк внутри вариантов
+                    if (line !== 'учня' && line !== '—' && line !== 'Предмет' && line !== 'Учень') {
+                        currentQ.lines.push(line);
+                    }
                 }
             }
         });
@@ -290,13 +292,11 @@
 
             const isCorrectOverall = q.status.toLowerCase().includes('правильно');
 
-            // Умная сборка вариантов: склеиваем строки, пока не встретим маркер правильного ответа или конец
             let options = [];
             let currentOptText = "";
 
             rawLines.forEach(line => {
-                if (line === 'учня' || line === '—' || line === 'Предмет' || line === 'Учень') return;
-                
+                // Если строка содержит метку правильного ответа
                 if (line.includes('правильна') || line.includes('правильно')) {
                     currentOptText += " " + line.replace(/правильна|правильно/gi, '').trim();
                     options.push({ text: currentOptText.trim(), correct: true });
