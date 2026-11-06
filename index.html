@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Шпаргалка НаУрок (v3.8)</title>
+    <title>Шпаргалка НаУрок (v3.9)</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <style>
         :root {
@@ -170,7 +170,7 @@
 
 <div class="container">
     <h1>Шпаргалка НаУрок</h1>
-    <div class="version">Версія скрипта: 3.8</div>
+    <div class="version">Версія скрипта: 3.9</div>
     
     <div id="error-box"></div>
 
@@ -261,7 +261,7 @@
         let currentQ = null;
 
         lines.forEach(line => {
-            // Ищем маркер начала вопроса (статус + номер или номер + статус)
+            // Проверяем, является ли строка началом нового вопроса
             const match = line.match(/^(Правильно|Без відповіді|Неправильно|частково)\s*[:\-]?\s*(\d{1,3})$/i);
             const matchAlt = line.match(/^(\d{1,3})\s*[\:\-]?\s*(Правильно|Без відповіді|Неправильно|частково)$/i);
 
@@ -272,9 +272,10 @@
                 if (currentQ) questions.push(currentQ);
                 currentQ = { status: matchAlt[2], num: matchAlt[1], lines: [] };
             } else if (currentQ) {
-                // Жесткий фильтр: если строка содержит статус следующего вопроса, мы её отбрасываем
-                if (/^(Правильно|Без відповіді|Неправильно|частково)\s+\d{1,3}$/i.test(line)) return;
+                // Абсолютный запрет на добавление строк со статусами внутрь ответов
+                if (/^(Правильно|Без відповіді|Неправильно|частково)\s*\d{1,3}$/i.test(line)) return;
                 if (/^\d{1,3}\s+(Правильно|Без відповіді|Неправильно|частково)$/i.test(line)) return;
+                if (/^(Правильно|Без відповіді|Неправильно|частково)/i.test(line)) return;
 
                 if (line !== 'учня' && line !== '—' && line !== 'Предмет' && line !== 'Учень') {
                     currentQ.lines.push(line);
