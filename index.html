@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Шпаргалка НаУрок (v3.1)</title>
+    <title>Шпаргалка НаУрок (v3.2)</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <style>
         :root {
@@ -169,7 +169,7 @@
 
 <div class="container">
     <h1>Шпаргалка НаУрок</h1>
-    <div class="version">Версія скрипта: 3.1</div>
+    <div class="version">Версія скрипта: 3.2</div>
     
     <div id="error-box"></div>
 
@@ -259,14 +259,21 @@
         let currentQ = null;
 
         lines.forEach(line => {
-            // Ищем строки, где начинается статус и номер (например, "Правильно 1" или "Без відповіді 2")
+            // Ищем строку, где четко написано состояние и номер (например, "Правильно 1" или "Без відповіді 2")
             const match = line.match(/^(Правильно|Без відповіді|Неправильно)\s+(\d{1,2})$/i);
             
             if (match) {
                 if (currentQ) questions.push(currentQ);
                 currentQ = { status: match[1], num: match[2], lines: [] };
-            } else if (currentQ) {
-                currentQ.lines.push(line);
+            } else {
+                // Также проверяем обратный порядок, если номер идет перед статусом
+                const matchAlt = line.match(/^(\d{1,2})\s+(Правильно|Без відповіді|Неправильно)$/i);
+                if (matchAlt) {
+                    if (currentQ) questions.push(currentQ);
+                    currentQ = { status: matchAlt[2], num: matchAlt[1], lines: [] };
+                } else if (currentQ) {
+                    currentQ.lines.push(line);
+                }
             }
         });
         if (currentQ) questions.push(currentQ);
@@ -276,31 +283,49 @@
             if (q.lines.length === 0) return;
 
             const qText = q.lines[0];
-            const rawOpts = q.lines.slice(1);
+            const rawLines = q.lines.slice(1);
 
             const card = document.createElement('div');
             card.className = 'question-card';
 
             const isCorrectOverall = q.status.toLowerCase().includes('правильно');
 
-            let optionsHtml = '';
-            if (rawOpts.length > 0) {
-                rawOpts.forEach(opt => {
-                    const isCorr = opt.includes('правильна') || opt.includes('правильно');
-                    const cleanOpt = opt.replace(/правильна|правильно/gi, '').trim();
-                    if (cleanOpt && cleanOpt !== 'учня' && cleanOpt !== '—' && cleanOpt.length > 1) {
-                        optionsHtml += `
-                            <div class="option ${isCorr ? 'is-correct' : ''}">
-                                <span>${cleanOpt}</span>
-                                ${isCorr ? '<span class="option-meta">✓ правильна</span>' : ''}
-                            </div>
-                        `;
+            // Умная сборка вариантов: склеиваем строки, пока не встретим маркер правильного ответа или конец
+            let options = [];
+            let currentOptText = "";
+
+            rawLines.forEach(line => {
+                if (line === 'учня' || line === '—' || line === 'Предмет' || line === 'Учень') return;
+                
+                if (line.includes('правильна') || line.includes('правильно')) {
+                    currentOptText += " " + line.replace(/правильна|правильно/gi, '').trim();
+                    options.push({ text: currentOptText.trim(), correct: true });
+                    currentOptText = "";
+                } else {
+                    if (currentOptText) {
+                        options.push({ text: currentOptText.trim(), correct: false });
                     }
-                });
+                    currentOptText = line;
+                }
+            });
+            if (currentOptText) {
+                options.push({ text: currentOptText.trim(), correct: false });
             }
 
+            let optionsHtml = '';
+            options.forEach(opt => {
+                if (opt.text.length > 1) {
+                    optionsHtml += `
+                        <div class="option ${opt.correct ? 'is-correct' : ''}">
+                            <span>${opt.text}</span>
+                            ${opt.correct ? '<span class="option-meta">✓ правильна</span>' : ''}
+                        </div>
+                    `;
+                }
+            });
+
             if (!optionsHtml) {
-                optionsHtml = `<div class="option is-correct"><span>${q.lines.join(' ')}</span><span class="option-meta">✓ правильна</span></div>`;
+                optionsHtml = `<div class="option is-correct"><span>${rawLines.join(' ')}</span><span class="option-meta">✓ правильна</span></div>`;
             }
 
             card.innerHTML = `
