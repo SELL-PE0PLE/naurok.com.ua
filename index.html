@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Шпаргалка НаУрок (v5.0)</title>
+    <title>Шпаргалка НаУрок (v6.0)</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <style>
         :root {
@@ -170,17 +170,17 @@
 
 <div class="container">
     <h1>Шпаргалка НаУрок</h1>
-    <div class="version">Версія скрипта: 5.0</div>
+    <div class="version">Версія скрипта: 6.0 (З нуля)</div>
     
     <div id="error-box"></div>
 
     <div class="upload-box" onclick="document.getElementById('pdfFile').click()">
         <p>Натисніть сюди, щоб вибрати PDF файл з тесту</p>
         <div class="upload-btn">Обрати PDF</div>
-        <input type="file" id="pdfFile" accept="application/pdf,.pdf" onchange="handleFileV5(event)">
+        <input type="file" id="pdfFile" accept="application/pdf,.pdf" onchange="processPDFFromScratch(event)">
     </div>
 
-    <div id="loading">Читаємо PDF файл...</div>
+    <div id="loading">Аналіз структури PDF...</div>
     <div id="results"></div>
 </div>
 
@@ -194,7 +194,7 @@
         document.getElementById('loading').style.display = 'none';
     }
 
-    async function handleFileV5(event) {
+    async function processPDFFromScratch(event) {
         const file = event.target.files[0];
         if (!file) return;
 
@@ -202,7 +202,7 @@
         err.style.display = 'none';
         
         if (file.size === 0) {
-            showError("Помилка: файл має нульовий розмір (0 байт).");
+            showError("Помилка: файл має нульовий розмір.");
             return;
         }
 
@@ -213,132 +213,160 @@
             const arrayBuffer = await file.arrayBuffer();
             const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
             
-            let fullText = '';
+            let allItems = [];
             for (let i = 1; i <= pdf.numPages; i++) {
                 const page = await pdf.getPage(i);
                 const textContent = await page.getTextContent();
                 
-                let items = textContent.items.map(item => ({
-                    str: item.str,
-                    x: item.transform[4],
-                    y: item.transform[5]
-                }));
-
-                items.sort((a, b) => b.y - a.y || a.x - b.x);
-
-                let lastY = null;
-                let lineStr = '';
-                for (let item of items) {
-                    if (lastY !== null && Math.abs(item.y - lastY) > 5) {
-                        fullText += lineStr + '\n';
-                        lineStr = '';
+                textContent.items.forEach(item => {
+                    if (item.str.trim()) {
+                        allItems.push({
+                            str: item.str.trim(),
+                            x: item.transform[4],
+                            y: item.transform[5]
+                        });
                     }
-                    lineStr += item.str + ' ';
-                    lastY = item.y;
-                }
-                fullText += lineStr + '\n';
+                });
             }
 
+            // Сортируем сверху вниз (по убыванию Y), а затем слева направо (по возрастанию X)
+            allItems.sort((a, b) => b.y - a.y || a.x - b.x);
+
+            // Фильтруем мусор до фразы "Розбір відповідей"
+            let startIndex = allItems.findIndex(item => item.str.includes('Розбір відповідей'));
+            if (startIndex !== -1) {
+                allItems = allItems.slice(startIndex + 1);
+            }
+
+            buildCheatSheet(allItems);
             document.getElementById('loading').style.display = 'none';
-            parsePDFV5(fullText);
 
         } catch (error) {
             console.error(error);
-            showError("Помилка читання PDF: " + (error.message || error));
+            showError("Помилка обробки: " + (error.message || error));
         }
     }
 
-    function parsePDFV5(text) {
+    function buildCheatSheet(items) {
         const resultsContainer = document.getElementById('results');
-        
-        const startIndex = text.indexOf('Розбір відповідей');
-        const cleanText = startIndex !== -1 ? text.substring(startIndex) : text;
-
-        const lines = cleanText.split('\n').map(l => l.trim()).filter(Boolean);
-        
         let questions = [];
         let currentQ = null;
-        let mode = 'WAITING_FOR_QUESTION';
 
+        // Регулярка для поиска статусных строк типа "Правильно 1" или "Без відповіді 2"
+        const statusRegex = /^(Правильно|Без відповіді|Неправильно|частково)\s+(\d+)$/i;
+        const statusRegexAlt = /^(\d+)\s+(Правильно|Без відповіді|Неправильно|частково)$/i;
+
+        // Группируем элементы в строки по координате Y (с погрешностью в 4 пикселя)
+        let lines = [];
+        let currentLineY = null;
+        let currentLineItems = [];
+
+        items.forEach(item => {
+            if (currentLineY === null || Math.abs(item.y - currentLineY) > 4) {
+                if (currentLineItems.length > 0) {
+                    lines.push(currentLineItems.map(i => i.str).join(' '));
+                }
+                currentLineY = item.y;
+                currentLineItems = [item];
+            } else {
+                currentLineItems.push(item);
+            }
+        });
+        if (currentLineItems.length > 0) {
+            lines.push(currentLineItems.map(i => i.str).join(' '));
+        }
+
+        // Парсим линии
         lines.forEach(line => {
-            // Надежный поиск строки заголовка (например, "Правильно 1" или "Без відповіді 2")
-            const headerMatch = line.match(/^(Правильно|Без відповіді|Неправильно|частково)\s+(\d+)$/i) || 
-                                line.match(/^(\d+)\s+(Правильно|Без відповіді|Неправильно|частково)$/i);
+            let match = line.match(statusRegex) || line.match(statusRegexAlt);
 
-            if (headerMatch) {
-                if (currentQ) {
-                    questions.push(currentQ);
-                }
-                let status, num;
-                if (isNaN(headerMatch[1])) {
-                    status = headerMatch[1];
-                    num = headerMatch[2];
-                } else {
-                    num = headerMatch[1];
-                    status = headerMatch[2];
-                }
+            if (match) {
+                if (currentQ) questions.push(currentQ);
+                let status = isNaN(match[1]) ? match[1] : match[2];
+                let num = isNaN(match[1]) ? match[2] : match[1];
 
                 currentQ = {
                     status: status,
                     num: num,
-                    text: '',
-                    options: []
+                    textParts: [],
+                    rawOptions: []
                 };
-                mode = 'WAITING_FOR_TEXT';
-                return;
-            }
+            } else if (currentQ) {
+                // Игнорируем метаданные
+                if (['учня', '—', 'Предмет', 'Учень'].includes(line)) return;
+                
+                // Если внутри вариантов попался следующий статус — это сбой, прерываем текущий вопрос
+                if (statusRegex.test(line) || statusRegexAlt.test(line)) return;
 
-            if (!currentQ) return;
-
-            if (mode === 'WAITING_FOR_TEXT') {
-                if (line === 'учня' || line === '—' || line === 'Предмет' || line === 'Учень') return;
-                currentQ.text = line;
-                mode = 'COLLECTING_OPTIONS';
-            } else if (mode === 'COLLECTING_OPTIONS') {
-                if (line === 'учня' || line === '—' || line === 'Предмет' || line === 'Учень') return;
-                if (/^(Правильно|Без відповіді|Неправильно|частково)\s+\d+$/i.test(line)) return;
-
-                const isCorrect = line.includes('правильна') || line.includes('правильно');
-                const cleanOptText = line.replace(/правильна|правильно/gi, '').trim();
-
-                if (cleanOptText.length > 0) {
-                    currentQ.options.push({
-                        text: cleanOptText,
-                        correct: isCorrect
-                    });
+                // Первая непустая строка после статуса — это текст вопроса, остальные — варианты
+                if (currentQ.textParts.length === 0) {
+                    currentQ.textParts.push(line);
+                } else {
+                    currentQ.rawOptions.push(line);
                 }
             }
         });
-
-        if (currentQ) {
-            questions.push(currentQ);
-        }
+        if (currentQ) questions.push(currentQ);
 
         let count = 0;
         questions.forEach(q => {
-            if (!q.text || q.options.length === 0) return;
+            if (q.textParts.length === 0) return;
 
             const card = document.createElement('div');
             card.className = 'question-card';
 
             const isCorrectOverall = q.status.toLowerCase().includes('правильно');
+            const qText = q.textParts.join(' ');
+
+            // Склеиваем варианты ответов: объединяем строки, пока не встретим маркер "правильна"
+            let options = [];
+            let tempBuffer = [];
+
+            q.rawOptions.forEach(line => {
+                tempBuffer.push(line);
+                if (line.includes('правильна') || line.includes('правильно')) {
+                    options.push({
+                        text: tempBuffer.join(' '),
+                        correct: true
+                    });
+                    tempBuffer = [];
+                }
+            });
+
+            // Остаток без маркеров — это неправильные варианты
+            if (tempBuffer.length > 0) {
+                let text = tempBuffer.join(' ');
+                if (text.length > 1) {
+                    options.push({
+                        text: text,
+                        correct: false
+                    });
+                }
+            }
 
             let optionsHtml = '';
-            q.options.forEach(opt => {
-                optionsHtml += `
-                    <div class="option ${opt.correct ? 'is-correct' : ''}">
-                        <span>${opt.text}</span>
-                        ${opt.correct ? '<span class="option-meta">✓ правильна</span>' : ''}
-                    </div>
-                `;
+            options.forEach(opt => {
+                let cleanText = opt.text.replace(/правильна|правильно/gi, '').trim();
+                if (cleanText.length > 1) {
+                    optionsHtml += `
+                        <div class="option ${opt.correct ? 'is-correct' : ''}">
+                            <span>${cleanText}</span>
+                            ${opt.correct ? '<span class="option-meta">✓ правильна</span>' : ''}
+                        </div>
+                    `;
+                }
             });
+
+            if (!optionsHtml && q.rawOptions.length > 0) {
+                optionsHtml = `<div class="option is-correct"><span>${q.rawOptions.join(' ')}</span><span class="option-meta">✓ правильна</span></div>`;
+            }
 
             card.innerHTML = `
                 <div class="question-header">
                     <div class="question-number">${q.num}</div>
                     <div class="status-badge ${isCorrectOverall ? 'correct' : 'none'}">${q.status}</div>
                 </div>
-                <div class="question-text">${q.text}</div>
+                <div class="question-text">${qText}</div>
                 <div class="options-list">${optionsHtml}</div>
             `;
             
