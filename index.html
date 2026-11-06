@@ -131,4 +131,195 @@
             border-color: var(--success-border);
             color: var(--success-text);
         }
+
+        .option-meta {
+            font-size: 12px;
+            font-weight: 500;
+            white-space: nowrap;
+            margin-left: 10px;
+        }
+
+        #loading {
+            text-align: center;
+            display: none;
+            margin: 20px 0;
+            font-weight: 500;
+            color: #5f6368;
+        }
+
+        #error-box {
+            color: #d93025;
+            background: #fce8e6;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            display: none;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Шпаргалка НаУрок</h1>
+    
+    <div id="error-box"></div>
+
+    <div class="upload-box" onclick="document.getElementById('pdfFile').click()">
+        <p>Натисніть сюди, щоб вибрати PDF файл з тесту</p>
+        <div class="upload-btn">Обрати PDF</div>
+        <input type="file" id="pdfFile" accept="application/pdf,.pdf" onchange="handleFile(event)">
+    </div>
+
+    <div id="loading">Обробка файлу...</div>
+    <div id="results"></div>
+</div>
+
+<script>
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+    function showError(msg) {
+        const err = document.getElementById('error-box');
+        err.style.display = 'block';
+        err.innerText = msg;
+        document.getElementById('loading').style.display = 'none';
+    }
+
+    async function handleFile(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        const err = document.getElementById('error-box');
+        err.style.display = 'none';
         
+        if (file.size === 0) {
+            showError("Помилка: файл має нульовий розмір.");
+            return;
+        }
+
+        document.getElementById('loading').style.display = 'block';
+        document.getElementById('results').innerHTML = '';
+
+        try {
+            const arrayBuffer = await file.arrayBuffer();
+            const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+            
+            let fullText = '';
+            for (let i = 1; i <= pdf.numPages; i++) {
+                const page = await pdf.getPage(i);
+                const textContent = await page.getTextContent();
+                
+                for (let item of textContent.items) {
+                    fullText += item.str + '\n';
+                }
+            }
+
+            document.getElementById('loading').style.display = 'none';
+            parseAndRender(fullText);
+
+        } catch (error) {
+            console.error(error);
+            showError("Не вдалося прочитати PDF файл.");
+        }
+    }
+
+    function parseAndRender(text) {
+        const resultsContainer = document.getElementById('results');
+        
+        // Очищаем текст от шапки "Результат тестування" до "Розбір відповідей"
+        const startIndex = text.indexOf('Розбір відповідей');
+        const cleanText = startIndex !== -1 ? text.substring(startIndex) : text;
+
+        // Ищем блоки вопросов по шаблону: цифра номера, перенос строки, и статус (Правильно / Без відповіді)
+        // Нарезаем текст строго по паттерну номера вопроса от 1 до 99
+        const regex = /\n(?=\b([1-9][0-9]?)\s*\n(Правильно|Без відповіді|Неправильно|частково))/g;
+        const rawChunks = cleanText.split(regex);
+
+        let count = 0;
+
+        // Проходим по частям (каждая часть содержит номер, статус и текст)
+        for (let i = 1; i < rawChunks.length; i += 3) {
+            const qNum = rawChunks[i];
+            const status = rawChunks[i + 1];
+            const body = rawChunks[i + 2] || '';
+
+            if (!qNum || !status) continue;
+
+            const lines = body.split('\n').map(l => l.trim()).filter(Boolean);
+            if (lines.length === 0) continue;
+
+            // Первая строка тела — это сам текст вопроса
+            const qText = lines[0];
+            // Остальные строки — это варианты ответов
+            const optionsLines = lines.slice(1);
+
+            const card = document.createElement('div');
+            card.className = 'question-card';
+
+            const isCorrectOverall = status.toLowerCase().includes('правильно');
+
+            let optionsHtml = '';
+            
+            if (optionsLines.length > 0) {
+                // Группируем варианты (если слово "правильна" идет на следующей строке или в той же)
+                let currentOpt = '';
+                optionsLines.forEach(line => {
+                    if (line === 'правильна' || line === 'правильно') {
+                        if (currentOpt) {
+                            optionsHtml += `
+                                <div class="option is-correct">
+                                    <span>${currentOpt}</span>
+                                    <span class="option-meta">✓ правильна</span>
+                                </div>
+                            `;
+                            currentOpt = '';
+                        }
+                    } else {
+                        if (currentOpt) {
+                            // Выводим предыдущий накопленный вариант как обычный
+                            optionsHtml += `<div class="option"><span>${currentOpt}</span></div>`;
+                        }
+                        currentOpt = line;
+                    }
+                });
+                // Остаток
+                if (currentOpt) {
+                    const isCorr = currentOpt.includes('правильна');
+                    const cleanOpt = currentOpt.replace(/правильна|правильно/gi, '').trim();
+                    if (cleanOpt) {
+                        optionsHtml += `
+                            <div class="option ${isCorr ? 'is-correct' : ''}">
+                                <span>${cleanOpt}</span>
+                                ${isCorr ? '<span class="option-meta">✓ правильна</span>' : ''}
+                            </div>
+                        `;
+                    }
+                }
+            }
+
+            // Если варианты не выделились отдельно, покажем текст блока
+            if (!optionsHtml) {
+                optionsHtml = `<div class="option is-correct"><span>${body.trim()}</span><span class="option-meta">✓ правильна</span></div>`;
+            }
+
+            card.innerHTML = `
+                <div class="question-header">
+                    <div class="question-number">${qNum}</div>
+                    <div class="status-badge ${isCorrectOverall ? 'correct' : 'none'}">${status}</div>
+                </div>
+                <div class="question-text">${qText}</div>
+                <div class="options-list">${optionsHtml}</div>
+            `;
+            
+            resultsContainer.appendChild(card);
+            count++;
+        }
+
+        if (count === 0) {
+            resultsContainer.innerHTML = '<p style="text-align:center; color: #d93025;">Не вдалося розібрати питання. Спробуйте оновити сторінку.</p>';
+        }
+    }
+</script>
+
+</body>
+</html>
