@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Шпаргалка НаУрок (v3.5)</title>
+    <title>Шпаргалка НаУрок (v3.6)</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <style>
         :root {
@@ -162,6 +162,7 @@
             margin-bottom: 15px;
             display: none;
             font-size: 14px;
+            word-break: break-all;
         }
     </style>
 </head>
@@ -169,7 +170,7 @@
 
 <div class="container">
     <h1>Шпаргалка НаУрок</h1>
-    <div class="version">Версія скрипта: 3.5</div>
+    <div class="version">Версія скрипта: 3.6</div>
     
     <div id="error-box"></div>
 
@@ -179,7 +180,7 @@
         <input type="file" id="pdfFile" accept="application/pdf,.pdf" onchange="handleFile(event)">
     </div>
 
-    <div id="loading">Обробка файлу...</div>
+    <div id="loading">Читаємо PDF файл...</div>
     <div id="results"></div>
 </div>
 
@@ -201,7 +202,7 @@
         err.style.display = 'none';
         
         if (file.size === 0) {
-            showError("Помилка: файл має нульовий розмір.");
+            showError("Помилка: файл має нульовий розмір (0 байт). Спробуйте зберегти PDF у паку «Загрузки» на телефоні і вибрати його звідти.");
             return;
         }
 
@@ -210,12 +211,13 @@
 
         try {
             const arrayBuffer = await file.arrayBuffer();
-            const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+            const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
+            const pdf = await loadingTask.promise;
             
             let fullText = '';
             for (let i = 1; i <= pdf.numPages; i++) {
                 const page = await pdf.getPage(i);
-                const textContent = await page.getContent();
+                const textContent = await page.getTextContent();
                 
                 let items = textContent.items.map(item => ({
                     str: item.str,
@@ -243,7 +245,7 @@
 
         } catch (error) {
             console.error(error);
-            showError("Не вдалося прочитати PDF файл.");
+            showError("Помилка читання PDF: " + (error.message || error));
         }
     }
 
@@ -259,7 +261,6 @@
         let currentQ = null;
 
         lines.forEach(line => {
-            // Ищем точное вхождение статуса и номера в одной строке (например, "Без відповіді 3" или "Правильно 1")
             const match = line.match(/^(Правильно|Без відповіді|Неправильно|частково)\s*[:\-]?\s*(\d{1,3})$/i);
             const matchAlt = line.match(/^(\d{1,3})\s*[\:\-]?\s*(Правильно|Без відповіді|Неправильно|частково)$/i);
 
@@ -281,7 +282,6 @@
         questions.forEach(q => {
             if (q.lines.length === 0) return;
 
-            // Строго: первая строка — это текст вопроса, всё остальное — варианты
             const qText = q.lines[0];
             const rawOpts = q.lines.slice(1);
 
