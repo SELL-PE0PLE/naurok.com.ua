@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Шпаргалка НаУрок (v3.3)</title>
+    <title>Шпаргалка НаУрок (v3.4)</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <style>
         :root {
@@ -169,7 +169,7 @@
 
 <div class="container">
     <h1>Шпаргалка НаУрок</h1>
-    <div class="version">Версія скрипта: 3.3</div>
+    <div class="version">Версія скрипта: 3.4</div>
     
     <div id="error-box"></div>
 
@@ -259,7 +259,7 @@
         let currentQ = null;
 
         lines.forEach(line => {
-            // Строгий триггер: ищем строки вида "Правильно 1", "Без відповіді 2", "Неправильно 3" и т.д.
+            // Ищем строку статуса с номером, например "Без відповіді 3" или "Правильно 1"
             const match = line.match(/^(Правильно|Без відповіді|Неправильно|частково)\s+(\d{1,2})$/i);
             const matchAlt = line.match(/^(\d{1,2})\s+(Правильно|Без відповіді|Неправильно|частково)$/i);
             
@@ -269,12 +269,9 @@
             } else if (matchAlt) {
                 if (currentQ) questions.push(currentQ);
                 currentQ = { status: matchAlt[2], num: matchAlt[1], lines: [] };
-            } else {
-                if (currentQ) {
-                    // Исключаем попадание служебных строк внутри вариантов
-                    if (line !== 'учня' && line !== '—' && line !== 'Предмет' && line !== 'Учень') {
-                        currentQ.lines.push(line);
-                    }
+            } else if (currentQ) {
+                if (line !== 'учня' && line !== '—' && line !== 'Предмет' && line !== 'Учень') {
+                    currentQ.lines.push(line);
                 }
             }
         });
@@ -284,8 +281,10 @@
         questions.forEach(q => {
             if (q.lines.length === 0) return;
 
+            // Первая строка после статуса — это ВСЕГДА текст вопроса
             const qText = q.lines[0];
-            const rawLines = q.lines.slice(1);
+            // Всё остальное — варианты ответов
+            const rawOpts = q.lines.slice(1);
 
             const card = document.createElement('div');
             card.className = 'question-card';
@@ -295,8 +294,7 @@
             let options = [];
             let currentOptText = "";
 
-            rawLines.forEach(line => {
-                // Если строка содержит метку правильного ответа
+            rawOpts.forEach(line => {
                 if (line.includes('правильна') || line.includes('правильно')) {
                     currentOptText += " " + line.replace(/правильна|правильно/gi, '').trim();
                     options.push({ text: currentOptText.trim(), correct: true });
@@ -325,7 +323,7 @@
             });
 
             if (!optionsHtml) {
-                optionsHtml = `<div class="option is-correct"><span>${rawLines.join(' ')}</span><span class="option-meta">✓ правильна</span></div>`;
+                optionsHtml = `<div class="option is-correct"><span>${rawOpts.join(' ')}</span><span class="option-meta">✓ правильна</span></div>`;
             }
 
             card.innerHTML = `
