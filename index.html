@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Шпаргалка НаУрок (v4.0)</title>
+    <title>Шпаргалка НаУрок (v4.1)</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <style>
         :root {
@@ -170,14 +170,14 @@
 
 <div class="container">
     <h1>Шпаргалка НаУрок</h1>
-    <div class="version">Версія скрипта: 4.0 (Оновлено)</div>
+    <div class="version">Версія скрипта: 4.1</div>
     
     <div id="error-box"></div>
 
     <div class="upload-box" onclick="document.getElementById('pdfFile').click()">
         <p>Натисніть сюди, щоб вибрати PDF файл з тесту</p>
         <div class="upload-btn">Обрати PDF</div>
-        <input type="file" id="pdfFile" accept="application/pdf,.pdf" onchange="processNewPDF(event)">
+        <input type="file" id="pdfFile" accept="application/pdf,.pdf" onchange="handleFileV41(event)">
     </div>
 
     <div id="loading">Читаємо PDF файл...</div>
@@ -194,7 +194,7 @@
         document.getElementById('loading').style.display = 'none';
     }
 
-    async function processNewPDF(event) {
+    async function handleFileV41(event) {
         const file = event.target.files[0];
         if (!file) return;
 
@@ -211,8 +211,7 @@
 
         try {
             const arrayBuffer = await file.arrayBuffer();
-            const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
-            const pdf = await loadingTask.promise;
+            const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
             
             let fullText = '';
             for (let i = 1; i <= pdf.numPages; i++) {
@@ -241,7 +240,7 @@
             }
 
             document.getElementById('loading').style.display = 'none';
-            renderCleanQuestions(fullText);
+            parsePDFV41(fullText);
 
         } catch (error) {
             console.error(error);
@@ -249,7 +248,7 @@
         }
     }
 
-    function renderCleanQuestions(text) {
+    function parsePDFV41(text) {
         const resultsContainer = document.getElementById('results');
         
         const startIndex = text.indexOf('Розбір відповідей');
@@ -261,9 +260,9 @@
         let currentQ = null;
 
         lines.forEach(line => {
-            // Абсолютно точный поиск строк статуса с номером
-            const match = line.match(/^(Правильно|Без відповіді|Неправильно|частково)\s*[:\-]?\s*(\d{1,3})$/i);
-            const matchAlt = line.match(/^(\d{1,3})\s*[\:\-]?\s*(Правильно|Без відповіді|Неправильно|частково)$/i);
+            // Ищем строку вида "Правильно 1" или "Без відповіді 2"
+            const match = line.match(/^(Правильно|Без відповіді|Неправильно|частково)\s+(\d{1,3})$/i);
+            const matchAlt = line.match(/^(\d{1,3})\s+(Правильно|Без відповіді|Неправильно|частково)$/i);
 
             if (match) {
                 if (currentQ) questions.push(currentQ);
@@ -272,10 +271,9 @@
                 if (currentQ) questions.push(currentQ);
                 currentQ = { status: matchAlt[2], num: matchAlt[1], lines: [] };
             } else if (currentQ) {
-                // ЖЕСТКАЯ ФИЛЬТРАЦИЯ: если строка содержит слова статуса и число, вырезаем её нафиг
+                // Жестко отсекаем любые случайные попадания статусов внутрь ответов
                 if (/^(Правильно|Без відповіді|Неправильно|частково)\s+\d{1,3}$/i.test(line)) return;
                 if (/^\d{1,3}\s+(Правильно|Без відповіді|Неправильно|частково)$/i.test(line)) return;
-                if (/^(Правильно|Без відповіді|Неправильно|частково)/i.test(line)) return;
 
                 if (line !== 'учня' && line !== '—' && line !== 'Предмет' && line !== 'Учень') {
                     currentQ.lines.push(line);
@@ -288,6 +286,7 @@
         questions.forEach(q => {
             if (q.lines.length === 0) return;
 
+            // Первая строка — это вопрос
             const qText = q.lines[0];
             const rawOpts = q.lines.slice(1);
 
@@ -296,31 +295,34 @@
 
             const isCorrectOverall = q.status.toLowerCase().includes('правильно');
 
+            // Собираем варианты по признаку наличия слова "правильна" или "правильно"
             let options = [];
-            let currentOptText = "";
+            let tempBuffer = [];
 
             rawOpts.forEach(line => {
+                tempBuffer.push(line);
                 if (line.includes('правильна') || line.includes('правильно')) {
-                    currentOptText += " " + line.replace(/правильна|правильно/gi, '').trim();
-                    options.push({ text: currentOptText.trim(), correct: true });
-                    currentOptText = "";
-                } else {
-                    if (currentOptText) {
-                        options.push({ text: currentOptText.trim(), correct: false });
-                    }
-                    currentOptText = line;
+                    let fullOptText = tempBuffer.join(' ');
+                    tempBuffer = [];
+                    options.push({ text: fullOptText, correct: true });
                 }
             });
-            if (currentOptText) {
-                options.push({ text: currentOptText.trim(), correct: false });
+
+            // Если что-то осталось в буфере (непомеченные варианты)
+            if (tempBuffer.length > 0) {
+                let leftText = tempBuffer.join(' ');
+                if (leftText.length > 1) {
+                    options.push({ text: leftText, correct: false });
+                }
             }
 
             let optionsHtml = '';
             options.forEach(opt => {
-                if (opt.text.length > 1) {
+                let cleanOpt = opt.text.replace(/правильна|правильно/gi, '').trim();
+                if (cleanOpt.length > 1) {
                     optionsHtml += `
                         <div class="option ${opt.correct ? 'is-correct' : ''}">
-                            <span>${opt.text}</span>
+                            <span>${cleanOpt}</span>
                             ${opt.correct ? '<span class="option-meta">✓ правильна</span>' : ''}
                         </div>
                     `;
