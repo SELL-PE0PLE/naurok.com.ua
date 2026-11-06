@@ -209,14 +209,12 @@
                 const page = await pdf.getPage(i);
                 const textContent = await page.getTextContent();
                 
-                // Сортируем элементы по координатам Y (сверху вниз) и X (слева направо)
                 let items = textContent.items.map(item => ({
                     str: item.str,
                     x: item.transform[4],
                     y: item.transform[5]
                 }));
 
-                // Группируем по строкам (примерно одинаковый Y)
                 items.sort((a, b) => b.y - a.y || a.x - b.x);
 
                 let lastY = null;
@@ -247,33 +245,41 @@
         const startIndex = text.indexOf('Розбір відповідей');
         const cleanText = startIndex !== -1 ? text.substring(startIndex) : text;
 
-        // Разбиваем по номерам вопросов (число от 1 до 99 на новой строке)
-        const chunks = cleanText.split(/\n(?=\b([1-9][0-9]?)\s*\n)/g);
+        // Надежный поиск блоков по цифре в начале строки
+        const lines = cleanText.split('\n').map(l => l.trim()).filter(Boolean);
+        
+        let questions = [];
+        let currentQ = null;
+
+        lines.forEach(line => {
+            // Проверяем, является ли строка номером нового вопроса (число от 1 до 50)
+            if (/^\d{1,2}$/.test(line)) {
+                if (currentQ) questions.push(currentQ);
+                currentQ = { num: line, lines: [] };
+            } else if (currentQ) {
+                currentQ.lines.push(line);
+            }
+        });
+        if (currentQ) questions.push(currentQ);
 
         let count = 0;
-        for (let i = 1; i < chunks.length; i += 2) {
-            const qNum = chunks[i];
-            const body = chunks[i + 1] || '';
+        questions.forEach(q => {
+            if (q.lines.length === 0) return;
 
-            if (!qNum) continue;
+            // Первая строка после номера обычно статус (Правильно / Без відповіді)
+            let status = q.lines[0];
+            let startIndex = 1;
 
-            const lines = body.split('\n').map(l => l.trim()).filter(Boolean);
-            if (lines.length === 0) continue;
-
-            let status = lines[0];
-            let startIdx = 1;
-
-            // Если первая строка не статус, поищем статус в первых строках
             if (!status.includes('Правильно') && !status.includes('Без відповіді') && !status.includes('Неправильно')) {
                 status = "Без відповіді";
-                startIdx = 0;
+                startIndex = 0;
             }
 
-            const qBodyLines = lines.slice(startIdx);
-            if (qBodyLines.length === 0) continue;
+            const bodyLines = q.lines.slice(startIndex);
+            if (bodyLines.length === 0) return;
 
-            const qText = qBodyLines[0];
-            const rawOpts = qBodyLines.slice(1);
+            const qText = bodyLines[0];
+            const rawOpts = bodyLines.slice(1);
 
             const card = document.createElement('div');
             card.className = 'question-card';
@@ -285,7 +291,7 @@
                 rawOpts.forEach(opt => {
                     const isCorr = opt.includes('правильна') || opt.includes('правильно');
                     const cleanOpt = opt.replace(/правильна|правильно/gi, '').trim();
-                    if (cleanOpt) {
+                    if (cleanOpt && cleanOpt !== 'учня') {
                         optionsHtml += `
                             <div class="option ${isCorr ? 'is-correct' : ''}">
                                 <span>${cleanOpt}</span>
@@ -294,13 +300,15 @@
                         `;
                     }
                 });
-            } else {
-                optionsHtml = `<div class="option is-correct"><span>${qBodyLines.join(' ')}</span><span class="option-meta">✓ правильна</span></div>`;
+            }
+
+            if (!optionsHtml) {
+                optionsHtml = `<div class="option is-correct"><span>${bodyLines.join(' ')}</span><span class="option-meta">✓ правильна</span></div>`;
             }
 
             card.innerHTML = `
                 <div class="question-header">
-                    <div class="question-number">${qNum}</div>
+                    <div class="question-number">${q.num}</div>
                     <div class="status-badge ${isCorrectOverall ? 'correct' : 'none'}">${status}</div>
                 </div>
                 <div class="question-text">${qText}</div>
@@ -309,10 +317,10 @@
             
             resultsContainer.appendChild(card);
             count++;
-        }
+        });
 
         if (count === 0) {
-            resultsContainer.innerHTML = '<p style="text-align:center; color: #d93025;">Не вдалося розібрати питання. Спробуйте оновити сторінку.</p>';
+            resultsContainer.innerHTML = '<p style="text-align:center; color: #d93025;">Не вдалося знайти питання у цьому файлі.</p>';
         }
     }
 </script>
