@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Шпаргалка НаУрок</title>
+    <title>Шпаргалка НаУрок (v3.0)</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <style>
         :root {
@@ -34,6 +34,13 @@
         h1 {
             font-size: 20px;
             text-align: center;
+            margin-bottom: 5px;
+        }
+
+        .version {
+            font-size: 12px;
+            text-align: center;
+            color: #6b7280;
             margin-bottom: 20px;
         }
 
@@ -162,6 +169,7 @@
 
 <div class="container">
     <h1>Шпаргалка НаУрок</h1>
+    <div class="version">Версія скрипта: 3.0 (Захист від кешу)</div>
     
     <div id="error-box"></div>
 
@@ -242,44 +250,46 @@
     function parseAndRender(text) {
         const resultsContainer = document.getElementById('results');
         
-        const startIndex = text.indexOf('Розбір відповідей');
-        const cleanText = startIndex !== -1 ? text.substring(startIndex) : text;
-
-        // Ищем все вхождения номеров вопросов (цифра в начале строки или после пробела)
-        // НаУрок генерирует блоки, где номер идет перед статусом "Правильно" или "Без відповіді"
-        const lines = cleanText.split('\n').map(l => l.trim()).filter(Boolean);
+        // Абсолютно всеядный метод: ищем блоки, которые содержат номера и ответы
+        const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
         
         let questions = [];
         let currentQ = null;
 
         lines.forEach(line => {
-            // Если строка состоит только из цифры (от 1 до 99) или цифры со статусом
-            if (/^\d{1,2}$/.test(line) || /^\d{1,2}\s+(Правильно|Без відповіді)/.test(line)) {
+            // Если строка — это просто число от 1 до 99 (номер вопроса)
+            if (/^\d{1,2}$/.test(line)) {
                 if (currentQ) questions.push(currentQ);
-                let numMatch = line.match(/^\d{1,2}/);
-                currentQ = { num: numMatch ? numMatch[0] : '?', lines: [] };
-                // Если статус был на этой же строке
-                let statusMatch = line.match(/(Правильно|Без відповіді|Неправильно)/);
-                if (statusMatch) currentQ.status = statusMatch[0];
+                currentQ = { num: line, lines: [] };
             } else if (currentQ) {
                 currentQ.lines.push(line);
             }
         });
         if (currentQ) questions.push(currentQ);
 
+        // Если номеров не нашлось вообще, делаем фоллбек: просто выводим весь текст кусками
+        if (questions.length === 0) {
+            resultsContainer.innerHTML = `<div class="question-card"><div class="question-text">Сирий текст з PDF (не вдалося знайти номери):</div><p style="font-size:14px; color:#4b5563; white-space: pre-wrap;">${text.substring(0, 1500)}...</p></div>`;
+            return;
+        }
+
         let count = 0;
         questions.forEach((q, index) => {
             if (q.lines.length === 0) return;
 
-            let status = q.status || "Без відповіді";
-            let bodyLines = q.lines;
+            // Ищем статус в первых строках блока
+            let status = "Без відповіді";
+            let bodyStartIndex = 0;
 
-            // Проверяем первую строку на статус, если он не нашелся ранее
-            if (!q.status && (bodyLines[0]?.includes('Правильно') || bodyLines[0]?.includes('Без відповіді') || bodyLines[0]?.includes('Неправильно'))) {
-                status = bodyLines[0];
-                bodyLines = bodyLines.slice(1);
+            for (let i = 0; i < Math.min(3, q.lines.length); i++) {
+                if (q.lines[i].includes('Правильно') || q.lines[i].includes('Без відповіді') || q.lines[i].includes('Неправильно')) {
+                    status = q.lines[i];
+                    bodyStartIndex = i + 1;
+                    break;
+                }
             }
 
+            const bodyLines = q.lines.slice(bodyStartIndex);
             if (bodyLines.length === 0) return;
 
             const qText = bodyLines[0];
@@ -295,7 +305,7 @@
                 rawOpts.forEach(opt => {
                     const isCorr = opt.includes('правильна') || opt.includes('правильно');
                     const cleanOpt = opt.replace(/правильна|правильно/gi, '').trim();
-                    if (cleanOpt && cleanOpt !== 'учня' && cleanOpt !== '—') {
+                    if (cleanOpt && cleanOpt !== 'учня' && cleanOpt !== '—' && cleanOpt.length > 1) {
                         optionsHtml += `
                             <div class="option ${isCorr ? 'is-correct' : ''}">
                                 <span>${cleanOpt}</span>
@@ -312,7 +322,7 @@
 
             card.innerHTML = `
                 <div class="question-header">
-                    <div class="question-number">${q.num && q.num !== '?' ? q.num : (index + 1)}</div>
+                    <div class="question-number">${q.num}</div>
                     <div class="status-badge ${isCorrectOverall ? 'correct' : 'none'}">${status}</div>
                 </div>
                 <div class="question-text">${qText}</div>
@@ -324,7 +334,7 @@
         });
 
         if (count === 0) {
-            resultsContainer.innerHTML = '<p style="text-align:center; color: #d93025;">Не вдалося розібрати питання. Спробуйте оновити сторінку.</p>';
+            resultsContainer.innerHTML = '<p style="text-align:center; color: #d93025;">Не вдалося розібрати питання. Перевірте файл.</p>';
         }
     }
 </script>
