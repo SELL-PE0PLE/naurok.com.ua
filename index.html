@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Шпаргалка НаУрок (v3.4)</title>
+    <title>Шпаргалка НаУрок (v3.5)</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <style>
         :root {
@@ -169,7 +169,7 @@
 
 <div class="container">
     <h1>Шпаргалка НаУрок</h1>
-    <div class="version">Версія скрипта: 3.4</div>
+    <div class="version">Версія скрипта: 3.5</div>
     
     <div id="error-box"></div>
 
@@ -215,7 +215,7 @@
             let fullText = '';
             for (let i = 1; i <= pdf.numPages; i++) {
                 const page = await pdf.getPage(i);
-                const textContent = await page.getTextContent();
+                const textContent = await page.getContent();
                 
                 let items = textContent.items.map(item => ({
                     str: item.str,
@@ -259,10 +259,10 @@
         let currentQ = null;
 
         lines.forEach(line => {
-            // Ищем строку статуса с номером, например "Без відповіді 3" или "Правильно 1"
-            const match = line.match(/^(Правильно|Без відповіді|Неправильно|частково)\s+(\d{1,2})$/i);
-            const matchAlt = line.match(/^(\d{1,2})\s+(Правильно|Без відповіді|Неправильно|частково)$/i);
-            
+            // Ищем точное вхождение статуса и номера в одной строке (например, "Без відповіді 3" или "Правильно 1")
+            const match = line.match(/^(Правильно|Без відповіді|Неправильно|частково)\s*[:\-]?\s*(\d{1,3})$/i);
+            const matchAlt = line.match(/^(\d{1,3})\s*[\:\-]?\s*(Правильно|Без відповіді|Неправильно|частково)$/i);
+
             if (match) {
                 if (currentQ) questions.push(currentQ);
                 currentQ = { status: match[1], num: match[2], lines: [] };
@@ -281,9 +281,8 @@
         questions.forEach(q => {
             if (q.lines.length === 0) return;
 
-            // Первая строка после статуса — это ВСЕГДА текст вопроса
+            // Строго: первая строка — это текст вопроса, всё остальное — варианты
             const qText = q.lines[0];
-            // Всё остальное — варианты ответов
             const rawOpts = q.lines.slice(1);
 
             const card = document.createElement('div');
